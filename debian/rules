@@ -7,9 +7,6 @@ export DH_VERBOSE=1
 %:
 	dh $@
 
-override_dh_auto_clean:
-	dh_clean
-
 override_dh_auto_configure:
 	dh_auto_configure -- \
 		-DCMAKE_BUILD_TYPE=Release \
@@ -18,6 +15,3 @@ override_dh_auto_configure:
 		-DCCCORELIB_USE_QT_CONCURRENT=ON \
 		-DCCCORELIB_SHARED=ON \
 		-DCCCORELIB_SCALAR_DOUBLE=OFF
-
-override_dh_shlibdeps:
-	dh_shlibdeps -l/usr/lib/cloudcompare $(DEBARCH)
