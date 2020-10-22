@@ -7,9 +7,6 @@ export DH_VERBOSE=1
 %:
 	dh $@
 
-override_dh_installchangelogs:
-	dh_installchangelogs CHANGELOG.md
-
 override_dh_auto_clean:
 	dh_clean
 
