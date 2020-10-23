@@ -1,3 +1,10 @@
+cccorelib (0.1.0-2) focal; urgency=medium
+
+  [ Michael Ripperger ]
+  * Focal release
+
+ -- Michael Ripperger <michael.ripperger@swri.org>  Fri, 23 Oct 2020 14:42:00 -0500
+
 cccorelib (0.1.0-2) bionic; urgency=medium
 
   [ Michael Ripperger ]
