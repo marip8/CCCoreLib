@@ -231,7 +231,7 @@ ICPRegistrationTools::RESULT_TYPE ICPRegistrationTools::Register(	GenericIndexed
 		//we'll use the mesh vertices to estimate the right octree level
 		DgmOctree dataOctree(data.cloud);
 		DgmOctree modelOctree(inputModelCloud);
-		if (dataOctree.build() < static_cast<int>(data.cloud->size()) || modelOctree.build() < static_cast<int>(inputModelCloud->size()))
+        if (dataOctree.build() < 1 || modelOctree.build() < 1)
 		{
 			//an error occurred during the octree computation: probably there's not enough memory
 			return ICP_ERROR_NOT_ENOUGH_MEMORY;
