@@ -1116,17 +1116,22 @@ int ComputeMaxNeighborhoodLength(ScalarType maxSearchDist, PointCoordinateType c
 #ifdef ENABLE_CLOUD2MESH_DIST_MT
 
 /*** MULTI THREADING WRAPPER ***/
-static DgmOctree* s_octree_MT = nullptr;
-static NormalizedProgress* s_normProgressCb_MT = nullptr;
-static OctreeAndMeshIntersection* s_intersection_MT = nullptr;
-static bool s_cellFunc_MT_success = true;
-static int s_cellFunc_MT_results = DistanceComputationTools::DISTANCE_COMPUTATION_RESULTS::SUCCESS;
-static DistanceComputationTools::Cloud2MeshDistanceComputationParams s_params_MT;
+class CloudMeshDistMT
+{
+public:
+CloudMeshDistMT() = default;
+
+DgmOctree* s_octree_MT = nullptr;
+NormalizedProgress* s_normProgressCb_MT = nullptr;
+OctreeAndMeshIntersection* s_intersection_MT = nullptr;
+bool s_cellFunc_MT_success = true;
+int s_cellFunc_MT_results = DistanceComputationTools::DISTANCE_COMPUTATION_RESULTS::SUCCESS;
+DistanceComputationTools::Cloud2MeshDistanceComputationParams s_params_MT;
 
 //'processTriangles' mechanism (based on bit mask)
-static std::vector<std::vector<bool>*> s_bitArrayPool_MT;
-static bool s_useBitArrays_MT = true;
-static QMutex s_currentBitMaskMutex;
+std::vector<std::vector<bool>*> s_bitArrayPool_MT;
+bool s_useBitArrays_MT = true;
+QMutex s_currentBitMaskMutex;
 
 void cloudMeshDistCellFunc_MT(const DgmOctree::IndexAndCode& desc)
 {
@@ -1383,7 +1388,7 @@ void cloudMeshDistCellFunc_MT(const DgmOctree::IndexAndCode& desc)
 		s_currentBitMaskMutex.unlock();
 	}
 }
-
+};
 #endif
 
 int DistanceComputationTools::computeCloud2MeshDistanceWithOctree(	OctreeAndMeshIntersection* intersection,
@@ -1763,16 +1768,17 @@ int DistanceComputationTools::computeCloud2MeshDistanceWithOctree(	OctreeAndMesh
 			}
 			progressCb->update(0);
 			progressCb->start();
-		}
+        }
 
-		s_octree_MT = octree;
-		s_normProgressCb_MT = &nProgress;
-		s_cellFunc_MT_success = true;
-		s_cellFunc_MT_results = DISTANCE_COMPUTATION_RESULTS::SUCCESS;
-		s_params_MT = params;
-		s_intersection_MT = intersection;
+        CloudMeshDistMT mt;
+        mt.s_octree_MT = octree;
+        mt.s_normProgressCb_MT = &nProgress;
+        mt.s_cellFunc_MT_success = true;
+        mt.s_cellFunc_MT_results = DISTANCE_COMPUTATION_RESULTS::SUCCESS;
+        mt.s_params_MT = params;
+        mt.s_intersection_MT = intersection;
 		//acceleration structure
-		s_useBitArrays_MT = true;
+        mt.s_useBitArrays_MT = true;
 
 		//Single thread emulation
 		//for (unsigned i=0; i<numberOfCells; ++i)
@@ -1781,26 +1787,29 @@ int DistanceComputationTools::computeCloud2MeshDistanceWithOctree(	OctreeAndMesh
 		int maxThreadCount = params.maxThreadCount;
 		if (maxThreadCount == 0)
 		{
-			maxThreadCount = QThread::idealThreadCount();
-		}
-		QThreadPool::globalInstance()->setMaxThreadCount(maxThreadCount);
-		QtConcurrent::blockingMap(cellsDescs, cloudMeshDistCellFunc_MT);
+            maxThreadCount = QThread::idealThreadCount();
+        }
+        QThreadPool::globalInstance()->setMaxThreadCount(maxThreadCount);
+        std::function<void(const DgmOctree::IndexAndCode &desc)> fn
+            = std::bind(&CloudMeshDistMT::cloudMeshDistCellFunc_MT, &mt, std::placeholders::_1);
 
-		s_octree_MT = nullptr;
-		s_normProgressCb_MT = nullptr;
-		s_intersection_MT = nullptr;
+        QtConcurrent::blockingMap(cellsDescs, fn);
+
+        mt.s_octree_MT = nullptr;
+        mt.s_normProgressCb_MT = nullptr;
+        mt.s_intersection_MT = nullptr;
 
 		//clean acceleration structure
-		while (!s_bitArrayPool_MT.empty())
+        while (!mt.s_bitArrayPool_MT.empty())
+        {
+            delete mt.s_bitArrayPool_MT.back();
+            mt.s_bitArrayPool_MT.pop_back();
+        }
+        if (!mt.s_cellFunc_MT_success && mt.s_cellFunc_MT_results == DISTANCE_COMPUTATION_RESULTS::SUCCESS)
 		{
-			delete s_bitArrayPool_MT.back();
-			s_bitArrayPool_MT.pop_back();
+            mt.s_cellFunc_MT_results = DISTANCE_COMPUTATION_RESULTS::ERROR_EXECUTE_CLOUD_MESH_DIST_CELL_FUNC_MT_FAILURE;
 		}
-		if (!s_cellFunc_MT_success && s_cellFunc_MT_results == DISTANCE_COMPUTATION_RESULTS::SUCCESS)
-		{
-			s_cellFunc_MT_results = DISTANCE_COMPUTATION_RESULTS::ERROR_EXECUTE_CLOUD_MESH_DIST_CELL_FUNC_MT_FAILURE;
-		}
-		return (s_cellFunc_MT_success ? DISTANCE_COMPUTATION_RESULTS::SUCCESS : s_cellFunc_MT_results);
+        return (mt.s_cellFunc_MT_success ? DISTANCE_COMPUTATION_RESULTS::SUCCESS : mt.s_cellFunc_MT_results);
 	}
 #endif
 }
