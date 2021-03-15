@@ -112,10 +112,10 @@ set_target_properties( CCCoreLib
 		CXX_EXTENSIONS OFF
 )
 
-target_compile_definitions( CCCoreLib
-	PRIVATE
-		"$<$<CONFIG:DEBUG>:CC_DEBUG>"
-)
+#target_compile_definitions( CCCoreLib
+#	PRIVATE
+#		"$<$<CONFIG:DEBUG>:CC_DEBUG>"
+#)
 
 if ( CCCORELIB_SCALAR_DOUBLE )
 	target_compile_definitions( CCCoreLib
